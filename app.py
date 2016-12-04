@@ -1,5 +1,6 @@
 from pymongo import MongoClient
-import csv, json, datetime
+import csv, json, datetime, logging
+
 
 client = MongoClient()
 db = client.cinTA
@@ -33,8 +34,20 @@ def createPageObj(idPage, cat):
 	}
 	return page
 
+def doLogging(filename):
+	LOG_FILENAME = 'temp/'+filename
+	logger = logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s', filename=LOG_FILENAME, filemode='w')
+	handler = logging.handlers.RotatingFileHandler(LOG_FILENAME, maxBytes=200, backupCount=5)
+	logger.addHandler(handler)
+	return logger
+
+
 def getPageFrequently(file, ix=0):
-	print "Processing File",file.split('/')[2]
+	fileName = file.split('/')[2]
+	splitName = fileName.split('-')
+	logName = splitName[0]+'-'+splitName[2]+'.log'
+	print "Processing File",fileName
+	logger = doLogging(logName)
 	with open(file, 'rb') as csvfile:
 		reader = csv.DictReader(csvfile)
 		for row in reader:
@@ -51,6 +64,7 @@ def getPageFrequently(file, ix=0):
 						'view': 1
 					}
 				}, upsert = False)
+			logger.info('Processing data ke %d',ix)
 			if ix % 10000 == 0:
 				print "Data ke",ix
 		print "Processing",file," Done"
@@ -58,7 +72,7 @@ def getPageFrequently(file, ix=0):
 def main():
 	print "Program Start..."
 	ix = 0
-	for i in range(1,10):
+	for i in range(2,10):
 		if i < 10:
 			fileIndex = '00'+`i`
 		elif i < 100:
