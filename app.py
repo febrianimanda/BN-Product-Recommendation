@@ -1,4 +1,8 @@
-import csv, pprint, json, datetime, pandas
+from pymongo import MongoClient
+import csv, json, datetime
+
+client = MongoClient()
+db = client.cinTA
 
 def convertUnixTime(unixtime, get='datetime'):
 	if get == 'date':
@@ -8,72 +12,62 @@ def convertUnixTime(unixtime, get='datetime'):
 	else:
 		return datetime.datetime.fromtimestamp(int(unixtime)).strftime('%d-%m-%Y %H:%M:%S')
 
+def build_dict(seq, key):
+  return dict((d[key], dict(d, index=index)) for (index, d) in enumerate(seq))
 
-def processingFile(file, limit = 0):
-	print "Do Processing File..."
-	data = {}
-	with open(file, 'rb') as csvfile:
-		reader = csv.DictReader(csvfile)
-		i = 0
-		for row in reader:
-			i += 1
-			print "Data ke",i
-			if row['identity'] not in data.keys():
-				user = {
-					row['identity']: {
-						row['session_id']: {
-							'category': [row['param_category_slugs']],
-							'unixtime': [row['time']],
-							'datetime': [convertUnixTime(row['time'])],
-							'via': [row['subdomain']]
-						}
-					}
-				}
-				data.update(user)
-			else:
-				if row['session_id'] not in data[row['identity']].keys(): 
-					user = data[row['identity']]
-					session = {
-						row['session_id']: {
-							'category': [row['param_category_slugs']],
-							'unixtime': [row['time']],
-							'datetime': [convertUnixTime(row['time'])],
-							'via': [row['subdomain']]
-						}	
-					}
-					user.update(session)
-				else:
-					session = data[row['identity']][row['session_id']]
-					session['category'].append(row['param_category_slugs'])
-					session['unixtime'].append(row['time'])
-					session['datetime'].append(convertUnixTime(row['time']))
-					session['via'].append(row['subdomain'])
-			if limit != 0:
-				if i >= limit:
-					break
-		return data
-
-def getAllCategory(file):
-	print "Get All Category Processing..."
-	data = {}
-	f = pandas.read_csv(file)
-	cat = f.param_category_slugs
-	for i in cat:
-		if i not in data.keys():
-			data[i] = 1
-		else:
-			data[i] += 1
-	return data
+def getIndex(lst, key, val):
+	return next(index for (index, d) in enumerate(lst) if d[key] == val)
 
 def writeToJson(file, data):
-	print "Write to JSON Processing..."
+	print "Write to",file
 	j = json.dumps(data, indent=2)
 	f = open(file, 'w')
 	print >> f,j
 	f.close()
 
-# cat = getAllCategory('training-100k.csv')
-# writeToJson('category.json', cat)
+def createPageObj(idPage, cat):
+	page = {
+		'page_id': idPage,
+		'category': cat,
+		'view': 1
+	}
+	return page
 
-a = processingFile('training-100k.csv')
-writeToJson('train.json',a)
+def getPageFrequently(file, ix=0):
+	print "Processing File",file.split('/')[2]
+	with open(file, 'rb') as csvfile:
+		reader = csv.DictReader(csvfile)
+		for row in reader:
+			ix += 1
+			cursor = db.page_frequently.find_one({'page_id':row['param_id']})
+			if not cursor:
+				page = createPageObj(row['param_id'], row['param_category_slugs'])
+				db.page_frequently.insert_one(page)
+			else:
+				db.page_frequently.update_one({
+					'_id': cursor['_id']
+				},{
+					'$inc': {
+						'view': 1
+					}
+				}, upsert = False)
+			if ix % 10000 == 0:
+				print "Data ke",ix
+		print "Processing",file," Done"
+
+def main():
+	print "Program Start..."
+	ix = 0
+	for i in range(1,10):
+		if i < 10:
+			fileIndex = '00'+`i`
+		elif i < 100:
+			fileIndex = '0'+`i`
+		else:
+			fileIndex = `i`
+		filepath = '../dataset-100k/dataset-500k-'+fileIndex+'.csv'
+		getPageFrequently(filepath, ix)
+		ix += 100000
+	print "Program Finished"
+
+main()
