@@ -1,5 +1,5 @@
 from pymongo import MongoClient
-import csv, json, datetime, logging
+import csv, json, datetime, logging, pandas
 import logging.handlers
 
 
@@ -41,7 +41,7 @@ def doLogging(filename):
 	handler = logging.handlers.RotatingFileHandler(LOG_FILENAME, maxBytes=16384, backupCount=10)
 	logger = logging.getLogger(filename)
 	logger.addHandler(handler)
-	longging.info('Start Processing %s file', filename)
+	logging.info('Start Processing %s file', filename)
 
 def getPageFrequently(file, ix=0):
 	fileName = file.split('/')[2]
@@ -71,15 +71,14 @@ def getPageFrequently(file, ix=0):
 		logging.info('Processing Done')
 		print "Processing",file," Done"
 
-def getAllCategory(file):
+def getAllCategory(file, ix=0):
 	fileName = file.split('/')[2]
 	splitName = fileName.split('-')
 	logName = 'category-'+splitName[0]+'-'+splitName[2]+'.log'
-	print "Processing Get Category from",filename
+	print "Processing Get Category from",fileName
 	doLogging(logName)
 	f = pandas.read_csv(file)
 	cat = f.param_category_slugs
-	ix = 0
 	for i in cat:
 		ix+=1
 		cursor = db.page_category.find_one({'category_name':i})
@@ -99,23 +98,21 @@ def getAllCategory(file):
 		if ix % 10 == 0:
 			logging.info('# Records %d', ix)
 		if ix % 10000 == 0:
-			print '#Records %d', ix
+			print '# Records', ix
 	logging.info('Processing get category done')
-	print "Processing %s done", filename
+	print "Processing",fileName,"done"
 
-def main():
-	print "Program Start..."
-	ix = 0
-	for i in range(4,10):
-		if i < 10:
-			fileIndex = '00'+`i`
-		elif i < 100:
-			fileIndex = '0'+`i`
-		else:
-			fileIndex = `i`
-		filepath = '../dataset-100k/dataset-500k-'+fileIndex+'.csv'
-		getPageFrequently(filepath, ix)
-		ix += 100000
-	print "Program Finished"
 
-main()
+print "Program Start..."
+ix = 0
+for i in range(2,5):
+	if i < 10:
+		fileIndex = '00'+`i`
+	elif i < 100:
+		fileIndex = '0'+`i`
+	else:
+		fileIndex = `i`
+	filepath = '../dataset-100k/dataset-500k-'+fileIndex+'.csv'
+	getAllCategory(filepath, ix)
+	ix += 100000
+print "Program Finished"
