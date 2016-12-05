@@ -43,40 +43,46 @@ def doLogging(filename):
 	logger.addHandler(handler)
 	logging.info('Start Processing %s file', filename)
 
-def getPageFrequently(file, ix=0):
+def loggingRecord(ix):
+	if ix % 10 == 0:
+		logging.info('# Records %d', ix)
+	if ix % 10000 == 0:
+		print '# Records', ix
+
+def processingFileName(file):
 	fileName = file.split('/')[2]
 	splitName = fileName.split('-')
 	logName = splitName[0]+'-'+splitName[2]+'.log'
-	print "Processing File",fileName
-	doLogging(logName)
-	with open(file, 'rb') as csvfile:
-		reader = csv.DictReader(csvfile)
-		for row in reader:
-			ix += 1
-			cursor = db.page_frequently.find_one({'page_id':row['param_id']})
-			if not cursor:
-				page = createPageObj(row['param_id'], row['param_category_slugs'])
-				db.page_frequently.insert_one(page)
-			else:
-				db.page_frequently.update_one({
-					'_id': cursor['_id']
-				},{
-					'$inc': {
-						'view': 1
-					}
-				}, upsert = False)
-			logging.info('# Records %d',ix)
-			if ix % 10000 == 0:
-				print "# Records ",ix
-		logging.info('Processing Done')
-		print "Processing",file," Done"
+	return [fileName, logName]
+
+def getPageFrequently(file, ix=0):
+	nameFile = processingFileName(file)
+	print "Processing File",nameFile[0]
+	doLogging(nameFile[1])
+	f = pandas.read_csv(file)
+	for i in range(len(f)):
+		ix += 1
+		cursor = db.page_frequently.find_one({'page_id':f.param_id[i]})
+		if not cursor:
+			page = createPageObj(f.param_id[i], f.param_category_slugs[i])
+			db.page_frequently.insert_one(page)
+		else:
+			db.page_frequently.update_one({
+				'_id': cursor['_id']
+			},{
+				'$inc': {
+					'view': 1
+				}
+			}, upsert = False)
+		logging.info('# Records %d',ix)
+		loggingRecord(ix)
+	logging.info('Processing Done')
+	print "Processing",nameFile[0]," Done"
 
 def getAllCategory(file, ix=0):
-	fileName = file.split('/')[2]
-	splitName = fileName.split('-')
-	logName = 'category-'+splitName[0]+'-'+splitName[2]+'.log'
-	print "Processing Get Category from",fileName
-	doLogging(logName)
+	nameFile = processingFileName(file)
+	print "Processing Get Category from",nameFile[0]
+	doLogging(nameFile[1])
 	f = pandas.read_csv(file)
 	cat = f.param_category_slugs
 	for i in cat:
@@ -95,17 +101,56 @@ def getAllCategory(file, ix=0):
 					'views': 1
 				}
 			}, upsert=True)
-		if ix % 10 == 0:
-			logging.info('# Records %d', ix)
-		if ix % 10000 == 0:
-			print '# Records', ix
+	loggingRecord(ix)
 	logging.info('Processing get category done')
-	print "Processing",fileName,"done"
+	print "Processing",nameFile[0],"done"
 
+def getPageByTime(file, ix=0):
+	nameFile = processingFileName(file)
+	print "Processing getPageByTime in",nameFile[0]
+	doLogging(nameFile[1])
+	f = pandas.read_csv(file)
+	for i in range(len(f)):
+		ix += 1
+		cursor = db.page_time.find_one({'unixtime': f.time[i]})
+		if not cursor:
+			db.page_time.insert_one({
+				'unixtime': f.time[i],
+				'pages': [{
+					'page_name': f.param_id[i],
+					'category': f.param_category_slugs[i],
+					'views': 1
+				}]
+			})
+		else:
+			cursor2 = db.page_time.find_one({'unixtime': f.time[i], 'page_name':f.param_id[i]})
+			if not cursor2:
+				db.page_time.update_one({
+					'_id': cursor['_id']
+				},{
+					'$push': {
+						'pages': {
+							'page_name': f.param_id[i],
+							'category': f.param_category_slugs[i],
+							'views': 1
+						}
+					}
+				})
+			else:
+				db.page_time.update_one({
+					'_id': cursor2['_id']
+				},{
+					'$inc':{
+						'pages.views': 1
+					}
+				})
+		loggingRecord(ix)
+	logging.info('Processing getPageByTime in %s done',nameFile[0])
+	print 'Processing getPageByTime in',nameFile[0],' done'
 
 print "Program Start..."
 ix = 0
-for i in range(2,5):
+for i in range(1,3):
 	if i < 10:
 		fileIndex = '00'+`i`
 	elif i < 100:
@@ -113,6 +158,6 @@ for i in range(2,5):
 	else:
 		fileIndex = `i`
 	filepath = '../dataset-100k/dataset-500k-'+fileIndex+'.csv'
-	getAllCategory(filepath, ix)
+	getPageByTime(filepath, ix)
 	ix += 100000
 print "Program Finished"
