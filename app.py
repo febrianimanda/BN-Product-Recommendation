@@ -39,7 +39,9 @@ def doLogging(filename):
 	LOG_FILENAME = 'log/'+filename
 	logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s', filename=LOG_FILENAME, filemode='w')
 	handler = logging.handlers.RotatingFileHandler(LOG_FILENAME, maxBytes=16384, backupCount=10)
-	logger = logging.getLogger(filename)
+	logger = logging.getLogger()
+	logger.handlers[0].stream.close()
+	logger.removeHandler(logger.handlers[0])
 	logger.addHandler(handler)
 	logging.info('Start Processing %s file', filename)
 
@@ -58,7 +60,7 @@ def processingFileName(file):
 def getPageFrequently(file, ix=0):
 	nameFile = processingFileName(file)
 	print "Processing File",nameFile[0]
-	doLogging(nameFile[1])
+	doLogging('frequently-'+nameFile[1])
 	f = pandas.read_csv(file)
 	for i in range(len(f)):
 		ix += 1
@@ -82,7 +84,7 @@ def getPageFrequently(file, ix=0):
 def getAllCategory(file, ix=0):
 	nameFile = processingFileName(file)
 	print "Processing Get Category from",nameFile[0]
-	doLogging(nameFile[1])
+	doLogging('category-'+nameFile[1])
 	f = pandas.read_csv(file)
 	cat = f.param_category_slugs
 	for i in cat:
@@ -108,7 +110,7 @@ def getAllCategory(file, ix=0):
 def getPageByTime(file, ix=0):
 	nameFile = processingFileName(file)
 	print "Processing getPageByTime in",nameFile[0]
-	doLogging(nameFile[1])
+	doLogging('time-'+nameFile[1])
 	f = pandas.read_csv(file)
 	for i in range(len(f)):
 		ix += 1
@@ -150,7 +152,7 @@ def getPageByTime(file, ix=0):
 
 print "Program Start..."
 ix = 0
-for i in range(1,3):
+for i in range(3,4):
 	if i < 10:
 		fileIndex = '00'+`i`
 	elif i < 100:
