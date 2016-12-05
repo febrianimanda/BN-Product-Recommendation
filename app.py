@@ -1,5 +1,6 @@
 from pymongo import MongoClient
 import csv, json, datetime, logging
+import logging.handlers
 
 
 client = MongoClient()
@@ -35,19 +36,19 @@ def createPageObj(idPage, cat):
 	return page
 
 def doLogging(filename):
-	LOG_FILENAME = 'temp/'+filename
-	logger = logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s', filename=LOG_FILENAME, filemode='w')
-	handler = logging.handlers.RotatingFileHandler(LOG_FILENAME, maxBytes=200, backupCount=5)
+	LOG_FILENAME = 'log/'+filename
+	logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s', filename=LOG_FILENAME, filemode='w')
+	handler = logging.handlers.RotatingFileHandler(LOG_FILENAME, maxBytes=16384, backupCount=10)
+	logger = logging.getLogger(filename)
 	logger.addHandler(handler)
-	return logger
-
+	longging.info('Start Processing %s file', filename)
 
 def getPageFrequently(file, ix=0):
 	fileName = file.split('/')[2]
 	splitName = fileName.split('-')
 	logName = splitName[0]+'-'+splitName[2]+'.log'
 	print "Processing File",fileName
-	logger = doLogging(logName)
+	doLogging(logName)
 	with open(file, 'rb') as csvfile:
 		reader = csv.DictReader(csvfile)
 		for row in reader:
@@ -64,15 +65,48 @@ def getPageFrequently(file, ix=0):
 						'view': 1
 					}
 				}, upsert = False)
-			logger.info('Processing data ke %d',ix)
+			logging.info('# Records %d',ix)
 			if ix % 10000 == 0:
-				print "Data ke",ix
+				print "# Records ",ix
+		logging.info('Processing Done')
 		print "Processing",file," Done"
+
+def getAllCategory(file):
+	fileName = file.split('/')[2]
+	splitName = fileName.split('-')
+	logName = 'category-'+splitName[0]+'-'+splitName[2]+'.log'
+	print "Processing Get Category from",filename
+	doLogging(logName)
+	f = pandas.read_csv(file)
+	cat = f.param_category_slugs
+	ix = 0
+	for i in cat:
+		ix+=1
+		cursor = db.page_category.find_one({'category_name':i})
+		if not cursor:
+			db.page_category.insert_one({
+				'category_name': i,
+				'views': 1
+			})
+		else:
+			db.page_category.update_one({
+				'_id': cursor['_id']
+			},{
+				'$inc':{
+					'views': 1
+				}
+			}, upsert=True)
+		if ix % 10 == 0:
+			logging.info('# Records %d', ix)
+		if ix % 10000 == 0:
+			print '#Records %d', ix
+	logging.info('Processing get category done')
+	print "Processing %s done", filename
 
 def main():
 	print "Program Start..."
 	ix = 0
-	for i in range(2,10):
+	for i in range(4,10):
 		if i < 10:
 			fileIndex = '00'+`i`
 		elif i < 100:
