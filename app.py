@@ -2,9 +2,8 @@ from pymongo import MongoClient
 import csv, json, datetime, logging, pandas
 import logging.handlers
 
-
 client = MongoClient()
-db = client.cinTA
+db = client.BN
 
 def convertUnixTime(unixtime, get='datetime'):
 	if get == 'date':
@@ -150,16 +149,19 @@ def getPageByTime(file, ix=0):
 	logging.info('Processing getPageByTime in %s done',nameFile[0])
 	print 'Processing getPageByTime in',nameFile[0],' done'
 
-print "Program Start..."
-ix = 0
-for i in range(3,4):
-	if i < 10:
-		fileIndex = '00'+`i`
-	elif i < 100:
-		fileIndex = '0'+`i`
-	else:
-		fileIndex = `i`
-	filepath = '../dataset-100k/dataset-500k-'+fileIndex+'.csv'
-	getPageByTime(filepath, ix)
-	ix += 100000
-print "Program Finished"
+def runProcessing(start, end):
+	print "Program Start..."
+	ix = 0
+	for i in range(start,end):
+		if i < 10:
+			fileIndex = '00'+`i`
+		elif i < 100:
+			fileIndex = '0'+`i`
+		else:
+			fileIndex = `i`
+		filepath = '../dataset-100k/dataset-500k-'+fileIndex+'.csv'
+		getPageFrequently(filepath, ix)
+		ix += 100000
+	print "Program Finished"
+
+runProcessing(0,11)
